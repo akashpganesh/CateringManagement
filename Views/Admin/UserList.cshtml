@@ -1,0 +1,158 @@
+﻿@{
+    Layout = "~/Views/Shared/_AdminLayout.cshtml";
+    ViewData["Title"] = "User List";
+}
+
+<h2>Users</h2>
+
+<div id="alert-container"></div>
+
+<table class="table table-striped table-bordered" id="users-table">
+    <thead class="table-dark">
+        <tr>
+            <th>User ID</th>
+            <th>Full Name</th>
+            <th>Email</th>
+            <th>Role</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        <!-- Rows populated by JavaScript -->
+    </tbody>
+</table>
+
+<!-- User Details Modal -->
+<div class="modal" tabindex="-1" id="userModal">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">User Details</h5>
+                <button type="button" class="btn-close" onclick="closeModal()"></button>
+            </div>
+            <div class="modal-body" id="modal-body">
+                <!-- User details will be loaded here -->
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal()">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        const token = sessionStorage.getItem("token"); // JWT token
+
+        async function loadUsers() {
+            const tbody = document.querySelector("#users-table tbody");
+            tbody.innerHTML = "";
+            try {
+                const response = await fetch("/api/User", {
+                    headers: { "Authorization": `Bearer ${token}` }
+                });
+                if (!response.ok) throw new Error("Failed to fetch users");
+
+                const result = await response.json();
+                const users = result.data || [];
+
+                if (users.length === 0) {
+                    document.getElementById("alert-container").innerHTML =
+                        `<p class="alert alert-warning">No users found.</p>`;
+                } else {
+                    document.getElementById("alert-container").innerHTML = "";
+                }
+
+                users.forEach(user => {
+                    const row = document.createElement("tr");
+                    row.innerHTML = `
+                        <td>${user.userId}</td>
+                        <td>${user.fullName}</td>
+                        <td>${user.email}</td>
+                        <td>${user.role}</td>
+                        <td>
+                            <button class="btn btn-sm btn-info" onclick="viewDetails(${user.userId})">Details</button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteUser(${user.userId})">Delete</button>
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
+
+            } catch (err) {
+                document.getElementById("alert-container").innerHTML =
+                    `<p class="alert alert-danger">${err.message}</p>`;
+            }
+        }
+
+        async function viewDetails(id) {
+            try {
+                const response = await fetch(`/api/User/${id}`, {
+                    headers: { "Authorization": `Bearer ${token}` }
+                });
+                if (!response.ok) {
+                    const err = await response.json();
+                    alert(err.message || "Error fetching details");
+                    return;
+                }
+
+                const result = await response.json();
+                const user = result.data;
+
+                document.getElementById("modal-body").innerHTML = `
+                    <p><strong>User ID:</strong> ${user.userId}</p>
+                    <p><strong>Full Name:</strong> ${user.fullName}</p>
+                    <p><strong>Email:</strong> ${user.email}</p>
+                    <p><strong>Phone:</strong> ${user.phone}</p>
+                    <p><strong>Role:</strong> ${user.role}</p>
+                    <p><strong>Account Created:</strong> ${new Date(user.accountCreatedDate).toLocaleString()}</p>
+                `;
+                document.getElementById("userModal").style.display = "block";
+
+            } catch (err) {
+                alert(err.message);
+            }
+        }
+
+        function closeModal() {
+            document.getElementById("userModal").style.display = "none";
+        }
+
+        async function deleteUser(id) {
+            if (!confirm("Are you sure you want to delete this user?")) return;
+            try {
+                const response = await fetch(`/api/User/${id}`, {
+                    method: "DELETE",
+                    headers: { "Authorization": `Bearer ${token}` }
+                });
+                if (!response.ok) {
+                    const err = await response.json();
+                    alert(err.message || "Delete failed");
+                    return;
+                }
+                await loadUsers(); // Refresh list
+            } catch (err) {
+                alert(err.message);
+            }
+        }
+
+        // Load users on page load
+        window.onload = loadUsers;
+    </script>
+
+    <style>
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+        }
+
+        .modal-dialog {
+            max-width: 500px;
+            margin: 100px auto;
+        }
+    </style>
+}

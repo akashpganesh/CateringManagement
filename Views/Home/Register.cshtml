@@ -1,0 +1,93 @@
+﻿@{
+    ViewData["Title"] = "Register";
+}
+
+<div class="container d-flex justify-content-center align-items-center vh-100" style="background-color: #fff8f8;">
+    <div class="card shadow-lg p-4 border-0" style="width: 100%; max-width: 450px; border-radius: 12px;">
+        <h3 class="text-center mb-4 text-danger fw-bold">Catering Service Registration</h3>
+
+        <div id="regMessage" class="alert d-none"></div>
+
+        <form id="registerForm">
+            <div class="mb-3">
+                <label for="fullName" class="form-label fw-semibold">Full Name</label>
+                <input type="text" id="fullName" class="form-control" required placeholder="Enter your full name" />
+            </div>
+
+            <div class="mb-3">
+                <label for="email" class="form-label fw-semibold">Email</label>
+                <input type="email" id="email" class="form-control" required placeholder="Enter your email" />
+            </div>
+
+            <div class="mb-3">
+                <label for="phone" class="form-label fw-semibold">Phone</label>
+                <input type="text" id="phone" class="form-control" required placeholder="Enter your phone number" />
+            </div>
+
+            <div class="mb-3">
+                <label for="password" class="form-label fw-semibold">Password</label>
+                <input type="password" id="password" class="form-control" required placeholder="Enter your password" />
+            </div>
+
+            <button type="submit" class="btn btn-danger w-100 fw-semibold mb-3">Register</button>
+
+            <button type="button" class="btn btn-outline-danger w-100 fw-semibold" onclick="window.location.href='/'">
+                Back to Login
+            </button>
+        </form>
+    </div>
+</div>
+
+<script>
+    document.getElementById("registerForm").addEventListener("submit", async function (e) {
+        e.preventDefault();
+
+        const fullName = document.getElementById("fullName").value;
+        const email = document.getElementById("email").value;
+        const phone = document.getElementById("phone").value;
+        const password = document.getElementById("password").value;
+        const regMessage = document.getElementById("regMessage");
+
+        try {
+            const response = await fetch("/api/User/register", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ fullName, email, phone, password })
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                regMessage.className = "alert alert-success text-center";
+                regMessage.textContent = data.message || "Registration successful!";
+                regMessage.classList.remove("d-none");
+                setTimeout(() => window.location.href = "/", 1500);
+            } else {
+                regMessage.className = "alert alert-danger text-center";
+                regMessage.textContent = data.message || "Registration failed.";
+                regMessage.classList.remove("d-none");
+            }
+        } catch (error) {
+            regMessage.className = "alert alert-danger text-center";
+            regMessage.textContent = "Error connecting to the server.";
+            regMessage.classList.remove("d-none");
+        }
+    });
+</script>
+
+<style>
+    .card input:focus {
+        border-color: #dc3545 !important;
+        box-shadow: 0 0 5px rgba(220, 53, 69, 0.4) !important;
+    }
+
+    .btn-danger:hover {
+        background-color: #b30000;
+        transition: background-color 0.3s ease-in-out;
+    }
+
+    .btn-outline-danger:hover {
+        color: #fff;
+        background-color: #dc3545;
+    }
+</style>

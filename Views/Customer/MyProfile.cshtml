@@ -1,0 +1,213 @@
+﻿@{
+    Layout = "~/Views/Shared/_CustomerLayout.cshtml";
+    ViewData["Title"] = "My Profile";
+}
+
+<h2>My Profile</h2>
+
+<div id="alert-container"></div>
+
+<!-- Profile Form -->
+<form id="profileForm">
+    <div class="mb-3">
+        <label for="fullName" class="form-label">Full Name</label>
+        <input type="text" id="fullName" class="form-control" required />
+    </div>
+    <div class="mb-3">
+        <label for="email" class="form-label">Email</label>
+        <input type="email" id="email" class="form-control" required />
+    </div>
+    <div class="mb-3">
+        <label for="phone" class="form-label">Phone</label>
+        <input type="text" id="phone" class="form-control" />
+    </div>
+    <div class="mb-3">
+        <label for="role" class="form-label">Role</label>
+        <input type="text" id="role" class="form-control" readonly />
+    </div>
+    <button type="submit" class="btn btn-primary">Update Profile</button>
+</form>
+
+<!-- Change Password Button -->
+<button class="btn btn-warning mt-3" id="showPasswordBtn">Change Password</button>
+
+<!-- Change Password Modal -->
+<div class="modal" id="passwordModal">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Change Password</h5>
+                <button type="button" class="btn-close" onclick="closeModal()"></button>
+            </div>
+            <div class="modal-body">
+                <form id="passwordForm">
+                    <div class="mb-3">
+                        <label for="oldPassword" class="form-label">Old Password</label>
+                        <input type="password" id="oldPassword" class="form-control" required />
+                    </div>
+                    <div class="mb-3">
+                        <label for="newPassword" class="form-label">New Password</label>
+                        <input type="password" id="newPassword" class="form-control" required />
+                    </div>
+                    <div class="mb-3">
+                        <label for="confirmPassword" class="form-label">Confirm New Password</label>
+                        <input type="password" id="confirmPassword" class="form-control" required />
+                    </div>
+                    <button type="submit" class="btn btn-warning">Update Password</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        const token = sessionStorage.getItem("token"); // JWT token
+        const userId = sessionStorage.getItem("userId"); // Logged-in user id
+
+        // Load profile
+        async function loadProfile() {
+            try {
+                const response = await fetch(`/api/user/${userId}`, {
+                    headers: { "Authorization": `Bearer ${token}` }
+                });
+                if (!response.ok) {
+                    const err = await response.json();
+                    document.getElementById("alert-container").innerHTML =
+                        `<p class="alert alert-danger">${err.message || 'Failed to load profile'}</p>`;
+                    return;
+                }
+
+                const result = await response.json();
+                const user = result.data;
+
+                document.getElementById("fullName").value = user.fullName;
+                document.getElementById("email").value = user.email;
+                document.getElementById("phone").value = user.phone || '';
+                document.getElementById("role").value = user.role;
+
+            } catch (err) {
+                document.getElementById("alert-container").innerHTML =
+                    `<p class="alert alert-danger">${err.message}</p>`;
+            }
+        }
+
+        // Update profile
+        async function updateProfile(event) {
+            event.preventDefault();
+
+            const request = {
+                fullName: document.getElementById("fullName").value.trim(),
+                email: document.getElementById("email").value.trim(),
+                phone: document.getElementById("phone").value.trim()
+            };
+
+            try {
+                const response = await fetch(`/api/user/${userId}`, {
+                    method: "PATCH",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${token}`
+                    },
+                    body: JSON.stringify(request)
+                });
+
+                const result = await response.json();
+
+                if (!response.ok) {
+                    document.getElementById("alert-container").innerHTML =
+                        `<p class="alert alert-danger">${result.message || 'Failed to update profile'}</p>`;
+                    return;
+                }
+
+                document.getElementById("alert-container").innerHTML =
+                    `<p class="alert alert-success">${result.message}</p>`;
+
+            } catch (err) {
+                document.getElementById("alert-container").innerHTML =
+                    `<p class="alert alert-danger">${err.message}</p>`;
+            }
+        }
+
+        // Change password
+        async function changePassword(event) {
+            event.preventDefault();
+
+            const oldPassword = document.getElementById("oldPassword").value;
+            const newPassword = document.getElementById("newPassword").value;
+            const confirmPassword = document.getElementById("confirmPassword").value;
+
+            if (newPassword !== confirmPassword) {
+                alert("New password and confirm password do not match.");
+                return;
+            }
+
+            const request = { oldPassword, newPassword };
+
+            try {
+                const response = await fetch(`/api/user/change-password`, {
+                    method: "PATCH",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${token}`
+                    },
+                    body: JSON.stringify(request)
+                });
+
+                const result = await response.json();
+
+                if (!response.ok) {
+                    document.getElementById("alert-container").innerHTML =
+                        `<p class="alert alert-danger">${result.message || 'Failed to change password'}</p>`;
+                    return;
+                }
+
+                document.getElementById("alert-container").innerHTML =
+                    `<p class="alert alert-success">${result.message}</p>`;
+
+                // Clear password fields
+                document.getElementById("oldPassword").value = "";
+                document.getElementById("newPassword").value = "";
+                document.getElementById("confirmPassword").value = "";
+
+                closeModal();
+
+            } catch (err) {
+                document.getElementById("alert-container").innerHTML =
+                    `<p class="alert alert-danger">${err.message}</p>`;
+            }
+        }
+
+        // Show/hide modal
+        document.getElementById("showPasswordBtn").addEventListener("click", () => {
+            document.getElementById("passwordModal").style.display = "block";
+        });
+
+        function closeModal() {
+            document.getElementById("passwordModal").style.display = "none";
+        }
+
+        // Event listeners
+        window.onload = loadProfile;
+        document.getElementById("profileForm").addEventListener("submit", updateProfile);
+        document.getElementById("passwordForm").addEventListener("submit", changePassword);
+    </script>
+
+    <style>
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1050;
+        }
+
+        .modal-dialog {
+            max-width: 500px;
+            margin: 100px auto;
+        }
+    </style>
+}

@@ -1,0 +1,98 @@
+﻿@{
+    ViewData["Title"] = "Login";
+}
+
+<div class="container d-flex justify-content-center align-items-center vh-100" style="background-color: #fff8f8;">
+    <div class="card shadow-lg p-4 border-0" style="width: 100%; max-width: 420px; border-radius: 12px;">
+        <h3 class="text-center mb-4 text-danger fw-bold">Catering Service Login</h3>
+
+        <div id="message" class="alert d-none"></div>
+
+        <form id="loginForm">
+            <div class="mb-3">
+                <label for="email" class="form-label fw-semibold">Email address</label>
+                <input type="email" id="email" class="form-control" required placeholder="Enter your email" />
+            </div>
+
+            <div class="mb-3">
+                <label for="password" class="form-label fw-semibold">Password</label>
+                <input type="password" id="password" class="form-control" required placeholder="Enter your password" />
+            </div>
+
+            <button type="submit" class="btn btn-danger w-100 fw-semibold mb-3">Login</button>
+
+            <button type="button" class="btn btn-outline-danger w-100 fw-semibold" onclick="window.location.href='/Home/Register'">
+                Go to Registration Page
+            </button>
+        </form>
+    </div>
+</div>
+
+<script>
+    document.getElementById("loginForm").addEventListener("submit", async function (e) {
+        e.preventDefault();
+
+        const email = document.getElementById("email").value;
+        const password = document.getElementById("password").value;
+        const messageDiv = document.getElementById("message");
+
+        try {
+            const response = await fetch("/api/User/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email, password })
+            });
+
+            const data = await response.json();
+
+            console.log(data)
+
+            if (response.ok) {
+                messageDiv.className = "alert alert-success text-center";
+                messageDiv.textContent = data.message || "Login successful!";
+                messageDiv.classList.remove("d-none");
+
+                sessionStorage.setItem("token", data.data.token);
+                sessionStorage.setItem("userId", data.data.userId);
+                sessionStorage.setItem("role", data.data.role);
+
+                const role = data.data.role;
+
+                setTimeout(() => {
+                    if (role.toLowerCase() === "admin") {
+                        window.location.href = "/Admin";
+                    } else {
+                        window.location.href = "/Customer";
+                    }
+                }, 1000);
+
+            } else {
+                messageDiv.className = "alert alert-danger text-center";
+                messageDiv.textContent = data.message || "Invalid credentials.";
+                messageDiv.classList.remove("d-none");
+            }
+
+        } catch (error) {
+            messageDiv.className = "alert alert-danger text-center";
+            messageDiv.textContent = "Error connecting to the server.";
+            messageDiv.classList.remove("d-none");
+        }
+    });
+</script>
+
+<style>
+    .card input:focus {
+        border-color: #dc3545 !important;
+        box-shadow: 0 0 5px rgba(220, 53, 69, 0.4) !important;
+    }
+
+    .btn-danger:hover {
+        background-color: #b30000;
+        transition: background-color 0.3s ease-in-out;
+    }
+
+    .btn-outline-danger:hover {
+        color: #fff;
+        background-color: #dc3545;
+    }
+</style>
