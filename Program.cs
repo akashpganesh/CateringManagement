@@ -25,6 +25,10 @@ builder.Host.UseSerilog();
 // Add services to the container.
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IUserManager, UserManager>();
+builder.Services.AddScoped<IMenuRepository, MenuRepository>();
+builder.Services.AddScoped<IMenuManager, MenuManager>();
+builder.Services.AddScoped<IOrderRepository, OrderRepository>();
+builder.Services.AddScoped<IOrderManager, OrderManager>();
 
 // Add JWT Authentication
 builder.Services.AddJwtAuthentication(builder.Configuration);

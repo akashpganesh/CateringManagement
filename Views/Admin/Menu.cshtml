@@ -1,0 +1,259 @@
+﻿@{
+    ViewData["Title"] = "Menu Management";
+}
+
+<h2 class="mb-4">Menu Management</h2>
+
+<div id="alert-container"></div>
+
+<!-- Add Menu Button -->
+<button class="btn btn-success mb-3" id="addMenuBtn">Add New Menu</button>
+
+<!-- Menu Table -->
+<table class="table table-bordered table-striped" id="menuTable">
+    <thead class="table-dark">
+        <tr>
+            <th>Menu ID</th>
+            <th>Name</th>
+            <th>Category</th>
+            <th>Price (₹)</th>
+            <th>Available</th>
+            <th>Vegetarian</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody></tbody>
+</table>
+
+<!-- Add/Edit Menu Modal -->
+<div class="modal" id="menuModal">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 id="menuModalTitle" class="modal-title">Add Menu</h5>
+                <button type="button" class="btn-close" onclick="closeMenuModal()"></button>
+            </div>
+            <div class="modal-body">
+                <form id="menuForm">
+                    <input type="hidden" id="menuId" />
+                    <div class="mb-3">
+                        <label class="form-label">Name</label>
+                        <input type="text" id="menuName" class="form-control" required />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Category</label>
+                        <select id="menuCategory" class="form-select" required>
+                            <option value="">-- Select Category --</option>
+                            <option value="Main Course">Main Course</option>
+                            <option value="Starter">Starter</option>
+                            <option value="Dessert">Dessert</option>
+                            <option value="Drinks">Drinks</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Price (₹)</label>
+                        <input type="number" id="menuPrice" class="form-control" required />
+                    </div>
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" id="menuAvailability" class="form-check-input" checked />
+                        <label for="menuAvailability" class="form-check-label">Available</label>
+                    </div>
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" id="menuIsVegetarian" class="form-check-input" checked />
+                        <label for="menuIsVegetarian" class="form-check-label">Vegetarian</label>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">Save</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        const token = sessionStorage.getItem("token");
+
+        // Load all menus
+        async function loadMenus() {
+            try {
+                const response = await fetch("/api/menu", {
+                    headers: { "Authorization": `Bearer ${token}` }
+                });
+
+                const result = await response.json();
+                const tbody = document.querySelector("#menuTable tbody");
+                tbody.innerHTML = "";
+
+                result.data.forEach(menu => {
+                    const row = `
+                        <tr>
+                            <td>${menu.menuId}</td>
+                            <td>${menu.name}</td>
+                            <td>${menu.category}</td>
+                            <td>${menu.price}</td>
+                            <td>${menu.availability ? 'Yes' : 'No'}</td>
+                            <td>${menu.isVegetarian ? 'Yes' : 'No'}</td>
+                            <td>
+                                <button class="btn btn-info btn-sm" onclick="viewMenu(${menu.menuId})">View</button>
+                                <button class="btn btn-warning btn-sm" onclick="editMenu(${menu.menuId})">Edit</button>
+                                <button class="btn btn-danger btn-sm" onclick="deleteMenu(${menu.menuId})">Delete</button>
+                            </td>
+                        </tr>
+                    `;
+                    tbody.innerHTML += row;
+                });
+
+            } catch (err) {
+                showAlert("Error loading menu items: " + err.message, "danger");
+            }
+        }
+
+        // Show alert message
+        function showAlert(message, type = "success") {
+            document.getElementById("alert-container").innerHTML =
+                `<div class="alert alert-${type}">${message}</div>`;
+        }
+
+        // View menu details
+        async function viewMenu(id) {
+            try {
+                const response = await fetch(`/api/menu/${id}`, {
+                    headers: { "Authorization": `Bearer ${token}` }
+                });
+
+                const result = await response.json();
+                const menu = result.data;
+
+                alert(`
+        Menu Details:
+        Name: ${menu.name}
+        Category: ${menu.category}
+        Price: ₹${menu.price}
+        Available: ${menu.availability ? "Yes" : "No"}
+        Vegetarian: ${menu.isVegetarian ? "Yes" : "No"}
+                `);
+            } catch (err) {
+                showAlert("Failed to load menu details.", "danger");
+            }
+        }
+
+        // Open modal for Add
+        document.getElementById("addMenuBtn").addEventListener("click", () => {
+            document.getElementById("menuModalTitle").innerText = "Add Menu";
+            document.getElementById("menuForm").reset();
+            document.getElementById("menuId").value = "";
+            document.getElementById("menuModal").style.display = "block";
+        });
+
+        // Close modal
+        function closeMenuModal() {
+            document.getElementById("menuModal").style.display = "none";
+        }
+
+        // Add/Edit Menu
+        document.getElementById("menuForm").addEventListener("submit", async (e) => {
+            e.preventDefault();
+
+            const id = document.getElementById("menuId").value;
+            const menuData = {
+                name: document.getElementById("menuName").value,
+                category: document.getElementById("menuCategory").value,
+                price: parseFloat(document.getElementById("menuPrice").value),
+                availability: document.getElementById("menuAvailability").checked,
+                isVegetarian: document.getElementById("menuIsVegetarian").checked
+            };
+
+            try {
+                const method = id ? "PATCH" : "POST";
+                const url = id ? `/api/menu/${id}` : `/api/menu`;
+
+                const response = await fetch(url, {
+                    method,
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${token}`
+                    },
+                    body: JSON.stringify(menuData)
+                });
+
+                const result = await response.json();
+                if (response.ok) {
+                    showAlert(result.message);
+                    closeMenuModal();
+                    loadMenus();
+                } else {
+                    showAlert(result.message || "Failed to save menu.", "danger");
+                }
+
+            } catch (err) {
+                showAlert("Error saving menu: " + err.message, "danger");
+            }
+        });
+
+        // Edit menu
+        async function editMenu(id) {
+            try {
+                const response = await fetch(`/api/menu/${id}`, {
+                    headers: { "Authorization": `Bearer ${token}` }
+                });
+                const result = await response.json();
+                const menu = result.data;
+
+                document.getElementById("menuModalTitle").innerText = "Edit Menu";
+                document.getElementById("menuId").value = menu.menuId;
+                document.getElementById("menuName").value = menu.name;
+                document.getElementById("menuCategory").value = menu.category;
+                document.getElementById("menuPrice").value = menu.price;
+                document.getElementById("menuAvailability").checked = menu.availability;
+                document.getElementById("menuIsVegetarian").checked = menu.isVegetarian;
+
+                document.getElementById("menuModal").style.display = "block";
+            } catch (err) {
+                showAlert("Failed to load menu item for edit.", "danger");
+            }
+        }
+
+        // Delete menu
+        async function deleteMenu(id) {
+            if (!confirm("Are you sure you want to delete this menu item?")) return;
+
+            try {
+                const response = await fetch(`/api/menu/${id}`, {
+                    method: "DELETE",
+                    headers: { "Authorization": `Bearer ${token}` }
+                });
+
+                const result = await response.json();
+                if (response.ok) {
+                    showAlert(result.message);
+                    loadMenus();
+                } else {
+                    showAlert(result.message || "Failed to delete menu.", "danger");
+                }
+            } catch (err) {
+                showAlert("Error deleting menu: " + err.message, "danger");
+            }
+        }
+
+        // Initialize
+        window.onload = loadMenus;
+    </script>
+
+    <style>
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1050;
+        }
+
+        .modal-dialog {
+            max-width: 500px;
+            margin: 100px auto;
+        }
+    </style>
+}

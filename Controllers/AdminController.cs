@@ -15,5 +15,10 @@ namespace CateringManagement.Controllers
         {
             return View();
         }
+
+        public IActionResult Menu()
+        {
+            return View();
+        }
     }
 }
