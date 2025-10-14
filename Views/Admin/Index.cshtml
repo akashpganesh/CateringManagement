@@ -2,3 +2,164 @@
     Layout = "~/Views/Shared/_AdminLayout.cshtml";
     ViewData["Title"] = "Admin Dashboard";
 }
+
+<h2 class="mt-4 mb-4 text-center">Orders</h2>
+
+<div class="table-responsive">
+    <table class="table table-bordered table-striped align-middle" id="ordersTable">
+        <thead class="table-dark">
+            <tr>
+                <th>Order ID</th>
+                <th>Customer</th>
+                <th>Event Date</th>
+                <th>Total Amount (₹)</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+</div>
+
+<!-- View Order Details Modal -->
+<div class="modal fade" id="orderDetailsModal" tabindex="-1" aria-labelledby="orderDetailsLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-dark text-white">
+                <h5 class="modal-title">Order Details</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3"><strong>Order ID:</strong> <span id="detailOrderId"></span></div>
+                <div class="mb-3"><strong>Customer:</strong> <span id="detailUserName"></span></div>
+                <div class="mb-3"><strong>Event Date:</strong> <span id="detailEventDate"></span></div>
+                <div class="mb-3"><strong>Event Time:</strong> <span id="detailEventTime"></span></div>
+                <div class="mb-3"><strong>Venue:</strong> <span id="detailVenue"></span></div>
+                <div class="mb-3"><strong>Contact Number:</strong> <span id="detailContact"></span></div>
+                <div class="mb-3"><strong>Notes:</strong> <span id="detailNotes"></span></div>
+                <div class="mb-3"><strong>Status:</strong> <span id="detailStatus" class="badge"></span></div>
+                <div class="mb-3"><strong>Total Amount:</strong> ₹<span id="detailTotalAmount"></span></div>
+
+                <h5 class="mt-4 mb-2">Ordered Items</h5>
+                <table class="table table-sm table-bordered">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Menu Name</th>
+                            <th>Quantity</th>
+                            <th>Unit Price (₹)</th>
+                            <th>Total (₹)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="orderItemsTable"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    const token = sessionStorage.getItem("token");
+    const role = sessionStorage.getItem("role");
+
+    document.addEventListener("DOMContentLoaded", loadOrders);
+
+    async function loadOrders() {
+        try {
+            const response = await fetch("/api/order/summary", {
+                headers: { "Authorization": `Bearer ${token}` }
+            });
+            const result = await response.json();
+            const orders = result.data || result.Data;
+
+            const tbody = document.querySelector("#ordersTable tbody");
+            tbody.innerHTML = "";
+
+            orders.forEach(order => {
+                const tr = document.createElement("tr");
+                tr.innerHTML = `
+                    <td>${order.orderId}</td>
+                    <td>${order.userName}</td>
+                    <td>${new Date(order.eventDate).toLocaleDateString()}</td>
+                    <td>${order.totalAmount.toFixed(2)}</td>
+                    <td><span class="badge bg-${getStatusColor(order.orderStatus)}">${order.orderStatus}</span></td>
+                    <td>
+                        <button class="btn btn-sm btn-primary me-2" onclick="viewOrder(${order.orderId})">View</button>
+                        ${role === "Admin" ? `
+                            <button class="btn btn-sm btn-success me-1" onclick="updateStatus(${order.orderId}, 'Accepted')">Accept</button>
+                            <button class="btn btn-sm btn-danger" onclick="updateStatus(${order.orderId}, 'Rejected')">Reject</button>
+                        ` : ''}
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        } catch (error) {
+            console.error("Error loading orders:", error);
+        }
+    }
+
+    function getStatusColor(status) {
+        switch (status?.toLowerCase()) {
+            case "pending": return "warning";
+            case "accepted": return "success";
+            case "rejected": return "danger";
+            default: return "secondary";
+        }
+    }
+
+    async function viewOrder(orderId) {
+        try {
+            const response = await fetch(`/api/order/${orderId}`, {
+                headers: { "Authorization": `Bearer ${token}` }
+            });
+            const result = await response.json();
+            const order = result.data || result.Data;
+
+            document.getElementById("detailOrderId").textContent = order.orderId;
+            document.getElementById("detailUserName").textContent = order.userName;
+            document.getElementById("detailEventDate").textContent = new Date(order.eventDate).toLocaleDateString();
+            document.getElementById("detailEventTime").textContent = order.eventTime || "-";
+            document.getElementById("detailVenue").textContent = order.venue || "-";
+            document.getElementById("detailContact").textContent = order.contactNumber || "-";
+            document.getElementById("detailNotes").textContent = order.notes || "-";
+            document.getElementById("detailStatus").textContent = order.orderStatus;
+            document.getElementById("detailStatus").className = `badge bg-${getStatusColor(order.orderStatus)}`;
+            document.getElementById("detailTotalAmount").textContent = order.totalAmount.toFixed(2);
+
+            const itemsTable = document.getElementById("orderItemsTable");
+            itemsTable.innerHTML = "";
+            order.items.forEach(item => {
+                const tr = document.createElement("tr");
+                tr.innerHTML = `
+                    <td>${item.menuName}</td>
+                    <td>${item.quantity}</td>
+                    <td>${item.unitPrice.toFixed(2)}</td>
+                    <td>${(item.quantity * item.unitPrice).toFixed(2)}</td>
+                `;
+                itemsTable.appendChild(tr);
+            });
+
+            new bootstrap.Modal(document.getElementById("orderDetailsModal")).show();
+
+        } catch (error) {
+            console.error("Error fetching order details:", error);
+        }
+    }
+
+    async function updateStatus(orderId, status) {
+        if (!confirm(`Are you sure you want to mark this order as "${status}"?`)) return;
+        try {
+            const response = await fetch(`/api/order/${orderId}/status?orderStatus=${status}`, {
+                method: "PUT",
+                headers: { "Authorization": `Bearer ${token}` }
+            });
+
+            const result = await response.json();
+            alert(result.message || "Order status updated.");
+            loadOrders();
+        } catch (error) {
+            console.error("Error updating order status:", error);
+        }
+    }
+</script>
+}

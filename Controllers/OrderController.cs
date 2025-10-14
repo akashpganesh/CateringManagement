@@ -139,7 +139,7 @@ namespace CateringManagement.Controllers
                     var roleClaim = User.FindFirst(ClaimTypes.Role)?.Value;
                     if (roleClaim != null && roleClaim.Equals("Customer", StringComparison.OrdinalIgnoreCase))
                     {
-                        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+                        var userIdClaim = User.FindFirst("UserId");
                         if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out int userId))
                             return Unauthorized(new { Message = "Invalid user token.", CorrelationId = correlationId });
 

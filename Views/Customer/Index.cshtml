@@ -2,3 +2,148 @@
     Layout = "~/Views/Shared/_CustomerLayout.cshtml";
     ViewData["Title"] = "Customer Dashboard";
 }
+
+<h2 class="mt-4 mb-4 text-center">My Orders</h2>
+
+<div class="table-responsive">
+    <table class="table table-bordered table-striped align-middle" id="ordersTable">
+        <thead class="table-dark">
+            <tr>
+                <th>Order ID</th>
+                <th>Event Date</th>
+                <th>Total Amount (₹)</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+</div>
+
+<!-- View Order Details Modal -->
+<div class="modal fade" id="orderDetailsModal" tabindex="-1" aria-labelledby="orderDetailsLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-dark text-white">
+                <h5 class="modal-title" id="orderDetailsLabel">Order Details</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-2"><strong>Order ID:</strong> <span id="detailOrderId"></span></div>
+                <div class="mb-2"><strong>Event Date:</strong> <span id="detailEventDate"></span></div>
+                <div class="mb-2"><strong>Event Time:</strong> <span id="detailEventTime"></span></div>
+                <div class="mb-2"><strong>Venue:</strong> <span id="detailVenue"></span></div>
+                <div class="mb-2"><strong>Contact Number:</strong> <span id="detailContact"></span></div>
+                <div class="mb-2"><strong>Notes:</strong> <span id="detailNotes"></span></div>
+                <div class="mb-2"><strong>Status:</strong> <span id="detailStatus" class="badge"></span></div>
+                <div class="mb-2"><strong>Total Amount:</strong> ₹<span id="detailTotalAmount"></span></div>
+
+                <h5 class="mt-4 mb-2">Ordered Items</h5>
+                <table class="table table-sm table-bordered">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Menu Name</th>
+                            <th>Quantity</th>
+                            <th>Unit Price (₹)</th>
+                            <th>Total (₹)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="orderItemsTable"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        const token = sessionStorage.getItem("token");
+
+        document.addEventListener("DOMContentLoaded", loadOrders);
+
+        async function loadOrders() {
+            try {
+                const response = await fetch("/api/order/summary", {  // ✅ corrected URL (plural)
+                    headers: { "Authorization": `Bearer ${token}` }
+                });
+
+                if (!response.ok) throw new Error("Failed to load orders");
+                const result = await response.json();
+                const orders = result.data || result.Data || [];
+
+                const tbody = document.querySelector("#ordersTable tbody");
+                tbody.innerHTML = "";
+
+                if (orders.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted">No orders found</td></tr>`;
+                    return;
+                }
+
+                orders.forEach(order => {
+                    const tr = document.createElement("tr");
+                    tr.innerHTML = `
+                        <td>${order.orderId}</td>
+                        <td>${new Date(order.eventDate).toLocaleDateString()}</td>
+                        <td>${order.totalAmount.toFixed(2)}</td>
+                        <td><span class="badge bg-${getStatusColor(order.orderStatus)}">${order.orderStatus}</span></td>
+                        <td>
+                            <button class="btn btn-sm btn-primary" onclick="viewOrder(${order.orderId})">View</button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch (error) {
+                console.error("Error loading orders:", error);
+            }
+        }
+
+        function getStatusColor(status) {
+            switch (status?.toLowerCase()) {
+                case "pending": return "warning";
+                case "accepted": return "success";
+                case "rejected": return "danger";
+                default: return "secondary";
+            }
+        }
+
+        async function viewOrder(orderId) {
+            try {
+                const response = await fetch(`/api/order/${orderId}`, {  // ✅ corrected URL (plural)
+                    headers: { "Authorization": `Bearer ${token}` }
+                });
+
+                if (!response.ok) throw new Error("Failed to fetch order details");
+                const result = await response.json();
+                const order = result.data || result.Data;
+
+                document.getElementById("detailOrderId").textContent = order.orderId;
+                document.getElementById("detailEventDate").textContent = new Date(order.eventDate).toLocaleDateString();
+                document.getElementById("detailEventTime").textContent = order.eventTime || "-";
+                document.getElementById("detailVenue").textContent = order.venue || "-";
+                document.getElementById("detailContact").textContent = order.contactNumber || "-";
+                document.getElementById("detailNotes").textContent = order.notes || "-";
+                document.getElementById("detailStatus").textContent = order.orderStatus;
+                document.getElementById("detailStatus").className = `badge bg-${getStatusColor(order.orderStatus)}`;
+                document.getElementById("detailTotalAmount").textContent = order.totalAmount.toFixed(2);
+
+                const itemsTable = document.getElementById("orderItemsTable");
+                itemsTable.innerHTML = "";
+                order.items.forEach(item => {
+                    const tr = document.createElement("tr");
+                    tr.innerHTML = `
+                        <td>${item.menuName}</td>
+                        <td>${item.quantity}</td>
+                        <td>${item.unitPrice.toFixed(2)}</td>
+                        <td>${(item.quantity * item.unitPrice).toFixed(2)}</td>
+                    `;
+                    itemsTable.appendChild(tr);
+                });
+
+                new bootstrap.Modal(document.getElementById("orderDetailsModal")).show();
+
+            } catch (error) {
+                console.error("Error fetching order details:", error);
+            }
+        }
+    </script>
+}
