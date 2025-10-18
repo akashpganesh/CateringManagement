@@ -63,10 +63,9 @@
 
         async function loadOrders() {
             try {
-                const response = await fetch("/api/order/summary", {  // ✅ corrected URL (plural)
+                const response = await fetch("/api/order/summary", {
                     headers: { "Authorization": `Bearer ${token}` }
                 });
-
                 if (!response.ok) throw new Error("Failed to load orders");
                 const result = await response.json();
                 const orders = result.data || result.Data || [];
@@ -87,7 +86,8 @@
                         <td>${order.totalAmount.toFixed(2)}</td>
                         <td><span class="badge bg-${getStatusColor(order.orderStatus)}">${order.orderStatus}</span></td>
                         <td>
-                            <button class="btn btn-sm btn-primary" onclick="viewOrder(${order.orderId})">View</button>
+                            <button class="btn btn-sm btn-primary me-2" onclick="viewOrder(${order.orderId})">View</button>
+                            ${order.orderStatus.toLowerCase() !== 'cancelled' ? `<button class="btn btn-sm btn-danger" onclick="cancelOrder(${order.orderId})">Cancel</button>` : ''}
                         </td>
                     `;
                     tbody.appendChild(tr);
@@ -102,16 +102,16 @@
                 case "pending": return "warning";
                 case "accepted": return "success";
                 case "rejected": return "danger";
+                case "cancelled": return "secondary";
                 default: return "secondary";
             }
         }
 
         async function viewOrder(orderId) {
             try {
-                const response = await fetch(`/api/order/${orderId}`, {  // ✅ corrected URL (plural)
+                const response = await fetch(`/api/order/${orderId}`, {
                     headers: { "Authorization": `Bearer ${token}` }
                 });
-
                 if (!response.ok) throw new Error("Failed to fetch order details");
                 const result = await response.json();
                 const order = result.data || result.Data;
@@ -143,6 +143,28 @@
 
             } catch (error) {
                 console.error("Error fetching order details:", error);
+            }
+        }
+
+        async function cancelOrder(orderId) {
+            if (!confirm("Are you sure you want to cancel this order?")) return;
+
+            try {
+                const response = await fetch(`/api/order/${orderId}/cancel`, {
+                    method: "PUT",
+                    headers: { "Authorization": `Bearer ${token}` }
+                });
+                const result = await response.json();
+
+                if (response.ok) {
+                    alert(result.message || "Order cancelled successfully.");
+                    loadOrders(); // Refresh table
+                } else {
+                    alert(result.details || result.message || "Failed to cancel order.");
+                }
+            } catch (error) {
+                console.error("Error cancelling order:", error);
+                alert("An error occurred while cancelling the order.");
             }
         }
     </script>

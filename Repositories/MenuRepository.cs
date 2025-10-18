@@ -1,6 +1,7 @@
 ﻿using CateringManagement.Models;
 using Dapper;
 using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Logging;
 using System.Data;
 
 namespace CateringManagement.Repositories
@@ -8,24 +9,38 @@ namespace CateringManagement.Repositories
     public class MenuRepository : IMenuRepository
     {
         private readonly string _connectionString;
+        private readonly ILogger<MenuRepository> _logger;
 
-        public MenuRepository(IConfiguration configuration)
+        public MenuRepository(IConfiguration configuration, ILogger<MenuRepository> logger)
         {
             _connectionString = configuration.GetConnectionString("DefaultConnection");
+            _logger = logger;
         }
 
         public async Task<int> CreateMenuItemAsync(MenuItem menu)
         {
             using (IDbConnection db = new SqlConnection(_connectionString))
             {
-                var parameters = new DynamicParameters();
-                parameters.Add("@Name", menu.Name);
-                parameters.Add("@Category", menu.Category);
-                parameters.Add("@Price", menu.Price);
-                parameters.Add("@Availability", menu.Availability);
-                parameters.Add("@IsVegetarian", menu.IsVegetarian);
+                try
+                {
+                    var parameters = new DynamicParameters();
+                    parameters.Add("@Name", menu.Name);
+                    parameters.Add("@Category", menu.Category);
+                    parameters.Add("@Price", menu.Price);
+                    parameters.Add("@Availability", menu.Availability);
+                    parameters.Add("@IsVegetarian", menu.IsVegetarian);
 
-                return await db.QuerySingleAsync<int>("sp_CreateMenuItem", parameters, commandType: CommandType.StoredProcedure);
+                    return await db.QuerySingleAsync<int>(
+                        "sp_CreateMenuItem",
+                        parameters,
+                        commandType: CommandType.StoredProcedure
+                    );
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error while creating menu item: {MenuName}", menu.Name);
+                    throw;
+                }
             }
         }
 
@@ -33,7 +48,18 @@ namespace CateringManagement.Repositories
         {
             using (IDbConnection db = new SqlConnection(_connectionString))
             {
-                return await db.QueryAsync<MenuItem>("sp_GetAllMenuItems", commandType: CommandType.StoredProcedure);
+                try
+                {
+                    return await db.QueryAsync<MenuItem>(
+                        "sp_GetAllMenuItems",
+                        commandType: CommandType.StoredProcedure
+                    );
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error while fetching all menu items");
+                    throw;
+                }
             }
         }
 
@@ -46,16 +72,21 @@ namespace CateringManagement.Repositories
                     var parameters = new DynamicParameters();
                     parameters.Add("@MenuId", menuId);
 
-                    var menuItem = await db.QuerySingleAsync<MenuItem>(
+                    return await db.QuerySingleAsync<MenuItem>(
                         "sp_GetMenuItemById",
                         parameters,
                         commandType: CommandType.StoredProcedure
                     );
-                    return menuItem;
                 }
                 catch (SqlException ex) when (ex.Class == 16 && ex.Message.Contains("Menu item not found"))
                 {
+                    _logger.LogWarning("Menu item not found: ID {MenuId}", menuId);
                     throw new InvalidOperationException("Menu item not found");
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error while fetching menu item by ID {MenuId}", menuId);
+                    throw;
                 }
             }
         }
@@ -78,7 +109,13 @@ namespace CateringManagement.Repositories
                 }
                 catch (SqlException ex) when (ex.Class == 16 && ex.Message.Contains("Menu item not found"))
                 {
+                    _logger.LogWarning("Menu item not found during update: ID {MenuId}", menuId);
                     throw new InvalidOperationException("Menu item not found");
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error while updating menu item ID {MenuId}", menuId);
+                    throw;
                 }
             }
         }
@@ -96,7 +133,13 @@ namespace CateringManagement.Repositories
                 }
                 catch (SqlException ex) when (ex.Class == 16 && ex.Message.Contains("Menu item not found"))
                 {
+                    _logger.LogWarning("Menu item not found during delete: ID {MenuId}", menuId);
                     throw new InvalidOperationException("Menu item not found");
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error while deleting menu item ID {MenuId}", menuId);
+                    throw;
                 }
             }
         }

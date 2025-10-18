@@ -200,5 +200,56 @@ namespace CateringManagement.Controllers
                 }
             }
         }
+
+        [HttpPut("{orderId}/cancel")]
+        [Authorize]
+        public async Task<IActionResult> CancelOrder(int orderId)
+        {
+            var correlationId = HttpContext.Items["CorrelationId"]?.ToString() ?? Guid.NewGuid().ToString();
+            using (LogContext.PushProperty("CorrelationId", correlationId))
+            {
+                try
+                {
+                    // Only Admin or the user who owns the order can cancel
+                    var roleClaim = User.FindFirst(ClaimTypes.Role)?.Value;
+                    var userIdClaim = User.FindFirst("UserId")?.Value;
+                    int userId = userIdClaim != null ? int.Parse(userIdClaim) : 0;
+
+                    // If Customer, check ownership
+                    if (roleClaim.Equals("Customer", StringComparison.OrdinalIgnoreCase))
+                    {
+                        // Fetch order to verify ownership
+                        var order = await _orderManager.GetOrderByIdAsync(orderId);
+                        if (order == null)
+                            return NotFound(new { Message = "Order not found.", CorrelationId = correlationId });
+
+                        if (order.UserId != userId)
+                            return StatusCode(403, new { Message = "Access denied to cancel this order.", CorrelationId = correlationId });
+                    }
+
+                    await _orderManager.CancelOrderAsync(orderId);
+
+                    return Ok(new
+                    {
+                        Message = "Order cancelled successfully.",
+                        OrderId = orderId,
+                        CorrelationId = correlationId
+                    });
+                }
+                catch (InvalidOperationException ex)
+                {
+                    return BadRequest(new { Message = ex.Message, CorrelationId = correlationId });
+                }
+                catch (Exception ex)
+                {
+                    return StatusCode(500, new
+                    {
+                        Message = "Internal server error while cancelling order.",
+                        Details = ex.Message,
+                        CorrelationId = correlationId
+                    });
+                }
+            }
+        }
     }
 }

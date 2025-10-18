@@ -8,25 +8,35 @@
 
         <div id="regMessage" class="alert d-none"></div>
 
-        <form id="registerForm">
+        <form id="registerForm" novalidate>
             <div class="mb-3">
                 <label for="fullName" class="form-label fw-semibold">Full Name</label>
                 <input type="text" id="fullName" class="form-control" required placeholder="Enter your full name" />
+                <div class="invalid-feedback">Full name is required.</div>
             </div>
 
             <div class="mb-3">
                 <label for="email" class="form-label fw-semibold">Email</label>
                 <input type="email" id="email" class="form-control" required placeholder="Enter your email" />
+                <div class="invalid-feedback">Valid email is required.</div>
             </div>
 
             <div class="mb-3">
                 <label for="phone" class="form-label fw-semibold">Phone</label>
-                <input type="text" id="phone" class="form-control" required placeholder="Enter your phone number" />
+                <input type="text" id="phone" class="form-control" pattern="[0-9]{10}" required placeholder="Enter 10-digit phone number" />
+                <div class="invalid-feedback">Enter a valid 10-digit phone number.</div>
             </div>
 
             <div class="mb-3">
                 <label for="password" class="form-label fw-semibold">Password</label>
-                <input type="password" id="password" class="form-control" required placeholder="Enter your password" />
+                <input type="password" id="password" class="form-control" required minlength="6" placeholder="Enter your password" />
+                <div class="invalid-feedback">Password must be at least 6 characters long.</div>
+            </div>
+
+            <div class="mb-3">
+                <label for="confirmPassword" class="form-label fw-semibold">Confirm Password</label>
+                <input type="password" id="confirmPassword" class="form-control" required placeholder="Confirm your password" />
+                <div class="invalid-feedback">Passwords do not match.</div>
             </div>
 
             <button type="submit" class="btn btn-danger w-100 fw-semibold mb-3">Register</button>
@@ -42,11 +52,36 @@
     document.getElementById("registerForm").addEventListener("submit", async function (e) {
         e.preventDefault();
 
-        const fullName = document.getElementById("fullName").value;
-        const email = document.getElementById("email").value;
-        const phone = document.getElementById("phone").value;
+        const form = e.target;
+        const fullName = document.getElementById("fullName").value.trim();
+        const email = document.getElementById("email").value.trim();
+        const phone = document.getElementById("phone").value.trim();
         const password = document.getElementById("password").value;
+        const confirmPassword = document.getElementById("confirmPassword").value;
         const regMessage = document.getElementById("regMessage");
+
+        // Reset validation states
+        form.classList.remove("was-validated");
+
+        // Manual validation
+        if (!fullName || !email || !phone || !password || !confirmPassword) {
+            form.classList.add("was-validated");
+            return;
+        }
+
+        if (password.length < 6) {
+            regMessage.className = "alert alert-danger text-center";
+            regMessage.textContent = "Password must be at least 6 characters.";
+            regMessage.classList.remove("d-none");
+            return;
+        }
+
+        if (password !== confirmPassword) {
+            regMessage.className = "alert alert-danger text-center";
+            regMessage.textContent = "Passwords do not match.";
+            regMessage.classList.remove("d-none");
+            return;
+        }
 
         try {
             const response = await fetch("/api/User/register", {

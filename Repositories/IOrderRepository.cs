@@ -8,5 +8,6 @@ namespace CateringManagement.Repositories
         Task<IEnumerable<OrderSummary>> GetOrdersSummaryAsync(int? userId = null);
         Task<OrderDetails> GetOrderByIdAsync(int orderId);
         Task UpdateOrderStatusAsync(int orderId, string orderStatus);
+        Task CancelOrderAsync(int orderId);
     }
 }

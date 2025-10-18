@@ -10,26 +10,30 @@
 <div class="container mt-4">
     <div class="card shadow p-4 rounded-3">
 
-        <form id="orderForm">
+        <form id="orderForm" novalidate>
             <div class="row mb-3">
                 <div class="col-md-6">
                     <label class="form-label fw-bold">Event Date</label>
                     <input type="date" id="eventDate" class="form-control" required />
+                    <div class="invalid-feedback">Please select a valid event date.</div>
                 </div>
                 <div class="col-md-6">
                     <label class="form-label fw-bold">Event Time</label>
                     <input type="time" id="eventTime" class="form-control" required />
+                    <div class="invalid-feedback">Please select event time.</div>
                 </div>
             </div>
 
             <div class="mb-3">
                 <label class="form-label fw-bold">Venue</label>
                 <input type="text" id="venue" class="form-control" placeholder="Enter venue" required />
+                <div class="invalid-feedback">Venue is required.</div>
             </div>
 
             <div class="mb-3">
                 <label class="form-label fw-bold">Contact Number</label>
-                <input type="text" id="contactNumber" class="form-control" placeholder="Enter contact number" required />
+                <input type="text" id="contactNumber" class="form-control" maxlength="10" placeholder="Enter contact number" required />
+                <div class="invalid-feedback">Enter a valid 10-digit contact number.</div>
             </div>
 
             <div class="mb-3">
@@ -57,17 +61,19 @@
                         <tr>
                             <td>@item.Name</td>
                             <td>@item.Category</td>
-                            <td>@item.Price.ToString("C")</td>
+                            <td>₹@item.Price.ToString("0.00")</td>
                             <td>@(item.Availability ? "Yes" : "No")</td>
                             <td>@(item.IsVegetarian ? "Yes" : "No")</td>
                             <td>
-                                <input type="number" min="0" value="0" class="form-control quantityInput" data-menuid="@item.MenuId" @(item.Availability ? "" : "disabled") />
+                                <input type="number" min="0" value="0"
+                                       class="form-control quantityInput"
+                                       data-menuid="@item.MenuId"
+                                       @(item.Availability ? "" : "disabled") />
                             </td>
                         </tr>
                     }
                 </tbody>
             </table>
-
 
             <div class="text-center mt-3">
                 <button type="submit" class="btn btn-success px-4">Place Order</button>
@@ -88,23 +94,66 @@
             orderForm.addEventListener("submit", async function (e) {
                 e.preventDefault();
                 orderMessage.innerHTML = "";
+                orderForm.classList.remove("was-validated");
 
-                // Collect order details
                 const eventDate = document.getElementById("eventDate").value;
                 const eventTime = document.getElementById("eventTime").value;
                 const venue = document.getElementById("venue").value.trim();
                 const contactNumber = document.getElementById("contactNumber").value.trim();
                 const notes = document.getElementById("notes").value.trim();
 
-                // Collect menu items with quantity > 0
+                let valid = true;
+
+                // Validate event date (not empty and not in the past)
+                const today = new Date();
+                const selectedDate = new Date(eventDate);
+                if (!eventDate || selectedDate < today.setHours(0, 0, 0, 0)) {
+                    document.getElementById("eventDate").classList.add("is-invalid");
+                    valid = false;
+                } else {
+                    document.getElementById("eventDate").classList.remove("is-invalid");
+                }
+
+                // Validate event time
+                if (!eventTime) {
+                    document.getElementById("eventTime").classList.add("is-invalid");
+                    valid = false;
+                } else {
+                    document.getElementById("eventTime").classList.remove("is-invalid");
+                }
+
+                // Validate venue
+                if (!venue) {
+                    document.getElementById("venue").classList.add("is-invalid");
+                    valid = false;
+                } else {
+                    document.getElementById("venue").classList.remove("is-invalid");
+                }
+
+                // Validate contact number (10 digits)
+                const phoneRegex = /^[0-9]{10}$/;
+                if (!phoneRegex.test(contactNumber)) {
+                    document.getElementById("contactNumber").classList.add("is-invalid");
+                    valid = false;
+                } else {
+                    document.getElementById("contactNumber").classList.remove("is-invalid");
+                }
+
+                // Collect selected items
                 const items = Array.from(document.querySelectorAll(".quantityInput"))
-                    .map(input => {
-                        return { MenuId: parseInt(input.dataset.menuid), Quantity: parseInt(input.value) };
-                    })
+                    .map(input => ({
+                        MenuId: parseInt(input.dataset.menuid),
+                        Quantity: parseInt(input.value)
+                    }))
                     .filter(i => i.Quantity > 0);
 
-                if (!items.length) {
-                    orderMessage.innerHTML = '<div class="alert alert-warning">Select at least one menu item.</div>';
+                if (items.length === 0) {
+                    orderMessage.innerHTML = '<div class="alert alert-warning">Please select at least one menu item.</div>';
+                    valid = false;
+                }
+
+                if (!valid) {
+                    orderForm.classList.add("was-validated");
                     return;
                 }
 
@@ -118,7 +167,7 @@
                 };
 
                 try {
-                    const token = sessionStorage.getItem("token"); // JWT token
+                    const token = sessionStorage.getItem("token");
                     const response = await fetch("/api/Order", {
                         method: "POST",
                         headers: {
@@ -131,11 +180,11 @@
                     const data = await response.json();
 
                     if (response.ok) {
-                        orderMessage.innerHTML = `<div class="alert alert-success">${data.message} Total Amount: ₹${data.totalAmount}</div>`;
+                        orderMessage.innerHTML = `<div class="alert alert-success">${data.message || "Order placed successfully!"} Total Amount: ₹${data.totalAmount || 0}</div>`;
                         orderForm.reset();
                         document.querySelectorAll(".quantityInput").forEach(i => i.value = 0);
                     } else {
-                        orderMessage.innerHTML = `<div class="alert alert-danger">${data.message}</div>`;
+                        orderMessage.innerHTML = `<div class="alert alert-danger">${data.details || data.message || "Failed to place order."}</div>`;
                     }
                 } catch (err) {
                     console.error(err);
@@ -144,4 +193,23 @@
             });
         });
     </script>
+
+    <style>
+        .is-invalid {
+            border-color: #dc3545 !important;
+        }
+
+        .invalid-feedback {
+            display: none;
+        }
+
+        input.is-invalid + .invalid-feedback,
+        textarea.is-invalid + .invalid-feedback {
+            display: block;
+        }
+
+        .btn-success:hover {
+            background-color: #198754cc;
+        }
+    </style>
 }
